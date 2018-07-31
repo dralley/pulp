@@ -16,7 +16,7 @@ from .base import (  # noqa
     validate_unknown_fields,
     AsyncOperationResponseSerializer
 )
-from .fields import BaseURLField, ContentRelatedField, LatestVersionField  # noqa
+from .fields import BaseURLField, LatestVersionField  # noqa
 from .content import ArtifactSerializer, ContentGuardSerializer, ContentSerializer  # noqa
 from .progress import ProgressReportSerializer  # noqa
 from .repository import (  # noqa

@@ -7,14 +7,7 @@ from rest_framework.reverse import reverse
 from rest_framework_nested.relations import NestedHyperlinkedRelatedField
 
 from pulpcore.app import models
-from pulpcore.app.serializers import DetailRelatedField, RelatedField
-
-
-class ContentRelatedField(DetailRelatedField):
-    """
-    Serializer Field for use when relating to Content Detail Models
-    """
-    queryset = models.Content.objects.all()
+from pulpcore.app.serializers import RelatedField
 
 
 class ContentArtifactsField(serializers.DictField):
