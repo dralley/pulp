@@ -113,6 +113,9 @@ class PulpPluginAppConfig(apps.AppConfig):
                     if (obj is not NamedModelViewSet and issubclass(obj, NamedModelViewSet)):
                         model = obj.queryset.model
                         self.named_viewsets[model] = obj
+                        viewset_qualified_name = '{module}.{name}'.format(
+                            module=obj.__module__, name=obj.__name__)
+                        PulpAppConfig.viewsets_to_model_names[viewset_qualified_name] = model
                 except TypeError:
                     # obj isn't a class, issubclass exploded but obj can be safely filtered out
                     continue
@@ -138,3 +141,6 @@ class PulpAppConfig(PulpPluginAppConfig):
     # with manage.py, etc. This cannot contain a dot and must not conflict with the name of a
     # package containing a Django app.
     label = 'pulp_app'
+
+    # This is populated at Runtime and used by get_resource() to map urls to Models
+    viewsets_to_model_names = {}
