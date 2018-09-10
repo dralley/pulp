@@ -152,10 +152,10 @@ class NamedModelViewSet(viewsets.GenericViewSet):
                     kwargs[key] = value
         try:
             obj = model_cls.objects.get(**kwargs)
-        except model.MultipleObjectsReturned:
+        except model_cls.MultipleObjectsReturned:
             raise DRFValidationError(detail=_('URI {u} matches more than one {m}.').format(
                 u=uri, m=model._meta.model_name))
-        except model.DoesNotExist:
+        except model_cls.DoesNotExist:
             raise DRFValidationError(detail=_('URI {u} not found for {m}.').format(
                 u=uri, m=model._meta.model_name))
         except ValidationError:
