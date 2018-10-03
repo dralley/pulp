@@ -270,10 +270,25 @@ class RepositoryVersion(Model):
 
         Returns:
             dict: of {<type>: <count>}
+
+        TODO: This code is absolute total garbage (but it works). fix it.
         """
-        return {"none": ["dont forget about fixing me please"]}
-        # annotated = self.content.values('content_type_id').annotate(count=models.Count('content_type_id'))
-        # return {c['content_type_id']: c['count'] for c in annotated}
+        relationships = RepositoryContent.objects.filter(
+            repository=self.repository, version_added__number__lte=self.number).exclude(
+            version_removed__number__lte=self.number
+        ).values("content_type_id", "object_id")
+
+        content_summary = {}
+        for relationship in relationships:
+            content_type_id = relationship['content_type_id']
+            content_type = ContentType.objects.get(id=content_type_id)
+            content_type_name = "{label}.{model}".format(
+                label=content_type.app_label, model=content_type.model
+            )
+            total = content_summary.get(content_type_name, 0)
+            total += 1
+            content_summary[content_type_name] = total
+        return content_summary
 
     @classmethod
     def create(cls, repository, base_version=None):
