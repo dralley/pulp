@@ -3,9 +3,8 @@ from .content import (  # noqa
     ArtifactFilter,
     ArtifactViewSet,
     ContentGuardViewSet,
-    ContentViewSet,
-    ContentFilter
 )
+from .custom_filters import ContentRepositoryVersionFilter  # noqa
 from .repository import (  # noqa
     DistributionViewSet,
     ExporterViewSet,

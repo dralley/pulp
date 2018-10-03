@@ -211,7 +211,7 @@ class RepositoryVersion(Model):
     repository = models.ForeignKey(Repository, on_delete=models.CASCADE)
     number = models.PositiveIntegerField(db_index=True)
     complete = models.BooleanField(db_index=True, default=False)
-    base_version = models.ForeignKey('Repositoryversion', null=True,
+    base_version = models.ForeignKey('RepositoryVersion', null=True,
                                      on_delete=models.SET_NULL)
 
     class Meta:
@@ -271,8 +271,9 @@ class RepositoryVersion(Model):
         Returns:
             dict: of {<type>: <count>}
         """
-        annotated = self.content.values('type').annotate(count=models.Count('type'))
-        return {c['type']: c['count'] for c in annotated}
+        return {"none": ["dont forget about fixing me please"]}
+        # annotated = self.content.values('content_type_id').annotate(count=models.Count('content_type_id'))
+        # return {c['content_type_id']: c['count'] for c in annotated}
 
     @classmethod
     def create(cls, repository, base_version=None):
