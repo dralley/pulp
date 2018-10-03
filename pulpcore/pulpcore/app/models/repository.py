@@ -329,15 +329,51 @@ class RepositoryVersion(Model):
         """
         Returns:
             QuerySet: The Content objects that were added by this version.
+
+        TODO: deduplicate code?
+
         """
-        return Content.objects.filter(version_memberships__version_added=self)
+        relationships = RepositoryContent.objects.filter(
+            version_added=self
+        ).values("content_type_id", "object_id")
+
+        repo_content_by_type = defaultdict(set)
+        for relationship in relationships:
+            content_type_id = relationship['content_type_id']
+            repo_content_by_type[content_type_id].add(relationship['object_id'])
+
+        querysets_to_return = {}
+        for content_type_id, id_list in repo_content_by_type.items():
+            content_model = ContentType.objects.get(id=content_type_id).model_class()
+            qs = content_model.objects.filter(id__in=id_list)
+            querysets_to_return[content_type_id] = qs
+
+        return querysets_to_return
 
     def removed(self):
         """
         Returns:
             QuerySet: The Content objects that were removed by this version.
+
+        TODO: deduplicate code?
+
         """
-        return Content.objects.filter(version_memberships__version_removed=self)
+        relationships = RepositoryContent.objects.filter(
+            version_removed=self
+        ).values("content_type_id", "object_id")
+
+        repo_content_by_type = defaultdict(set)
+        for relationship in relationships:
+            content_type_id = relationship['content_type_id']
+            repo_content_by_type[content_type_id].add(relationship['object_id'])
+
+        querysets_to_return = {}
+        for content_type_id, id_list in repo_content_by_type.items():
+            content_model = ContentType.objects.get(id=content_type_id).model_class()
+            qs = content_model.objects.filter(id__in=id_list)
+            querysets_to_return[content_type_id] = qs
+
+        return querysets_to_return
 
     def next(self):
         """
