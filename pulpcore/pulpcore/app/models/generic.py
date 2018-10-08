@@ -47,6 +47,7 @@ class GenericKeyValueMutableMapping(MutableMapping):
     when saved to the database.
 
     """
+
     def __init__(self, manager):
         self.manager = manager
 

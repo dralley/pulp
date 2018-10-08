@@ -101,3 +101,75 @@ class ContentRepositoryVersionFilter(Filter):
         ).values_list("object_id", flat=True)
 
         return qs.filter(id__in=content_id_list)
+
+
+class ContentAddedRepositoryVersionFilter(Filter):
+    """
+    Filter used to get the content of this type found in a repository version.
+    """
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('help_text', _('Repository Version referenced by HREF'))
+        super().__init__(*args, **kwargs)
+
+    def filter(self, qs, value):
+        """
+        Args:
+            qs (django.db.models.query.QuerySet): The RepositoryVersion Queryset
+            value (string): of content href to filter
+
+        Returns:
+            Queryset of the RepositoryVersions containing the specified content
+        """
+
+        if value is None:
+            # user didn't supply a value
+            return qs
+
+        if not value:
+            raise serializers.ValidationError(
+                detail=_('No value supplied for repository version filter'))
+
+        # Get the repo_version object from the repository_version href
+        repo_version = NamedModelViewSet.get_resource(value, RepositoryVersion)
+        content_id_list = RepositoryContent.objects.filter(
+            repository=repo_version.repository, version_added__number=repo_version.number
+        ).values_list("object_id", flat=True)
+
+        return qs.filter(id__in=content_id_list)
+
+
+class ContentRemovedRepositoryVersionFilter(Filter):
+    """
+    Filter used to get the content of this type found in a repository version.
+    """
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('help_text', _('Repository Version referenced by HREF'))
+        super().__init__(*args, **kwargs)
+
+    def filter(self, qs, value):
+        """
+        Args:
+            qs (django.db.models.query.QuerySet): The RepositoryVersion Queryset
+            value (string): of content href to filter
+
+        Returns:
+            Queryset of the RepositoryVersions containing the specified content
+        """
+
+        if value is None:
+            # user didn't supply a value
+            return qs
+
+        if not value:
+            raise serializers.ValidationError(
+                detail=_('No value supplied for repository version filter'))
+
+        # Get the repo_version object from the repository_version href
+        repo_version = NamedModelViewSet.get_resource(value, RepositoryVersion)
+        content_id_list = RepositoryContent.objects.filter(
+            repository=repo_version.repository, version_removed__number=repo_version.number
+        ).values_list("object_id", flat=True)
+
+        return qs.filter(id__in=content_id_list)
