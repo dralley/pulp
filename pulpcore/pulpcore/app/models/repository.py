@@ -282,9 +282,7 @@ class RepositoryVersion(Model):
         for relationship in relationships:
             content_type_id = relationship['content_type_id']
             content_type = ContentType.objects.get(id=content_type_id)
-            content_type_name = "{label}.{model}".format(
-                label=content_type.app_label, model=content_type.model
-            )
+            content_type_name = "{model}".format(model=content_type.model)
             total = content_summary.get(content_type_name, 0)
             total += 1
             content_summary[content_type_name] = total
