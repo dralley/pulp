@@ -3,16 +3,9 @@ import warnings
 from gettext import gettext as _
 from urllib.parse import urlparse
 
-from pulpcore.app import tasks
-from pulpcore.app.apps import PulpAppConfig
-from pulpcore.app.models import MasterModel
-from pulpcore.app.response import OperationPostponedResponse
-from pulpcore.app.serializers import AsyncOperationResponseSerializer
-from pulpcore.tasking.tasks import enqueue_with_reservation
-
-from django.apps import apps as django_apps
 from django.urls import resolve, Resolver404
 from django.core.exceptions import FieldError, ValidationError
+from django_filters import Filter
 from django_filters.rest_framework import filterset
 
 from drf_yasg.utils import swagger_auto_schema
@@ -21,6 +14,14 @@ from rest_framework import viewsets
 from rest_framework.generics import get_object_or_404
 from rest_framework.schemas import AutoSchema
 from rest_framework.serializers import ValidationError as DRFValidationError
+
+from pulpcore.app import tasks
+from pulpcore.app.apps import PulpAppConfig
+from pulpcore.app.models import MasterModel, RepositoryContent, RepositoryVersion
+from pulpcore.app.response import OperationPostponedResponse
+from pulpcore.app.serializers import AsyncOperationResponseSerializer
+from pulpcore.tasking.tasks import enqueue_with_reservation
+
 
 # These should be used to prevent duplication and keep things consistent
 NAME_FILTER_OPTIONS = ['exact', 'in']
@@ -404,3 +405,140 @@ class BaseFilterSet(filterset.FilterSet):
                 field=name, expr=cls.LOOKUP_EXPR_TEXT[lookup_expr], value=val_word)
 
         return f
+
+
+class ContentRepositoryVersionFilter(Filter):
+    """
+    Filter used to get the content of this type found in a repository version.
+    """
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('help_text', _('Repository Version referenced by HREF'))
+        super().__init__(*args, **kwargs)
+
+    def filter(self, qs, value):
+        """
+        Args:
+            qs (django.db.models.query.QuerySet): The RepositoryVersion Queryset
+            value (string): of content href to filter
+
+        Returns:
+            Queryset of the RepositoryVersions containing the specified content
+        """
+
+        if value is None:
+            # user didn't supply a value
+            return qs
+
+        if not value:
+            raise DRFValidationError(
+                detail=_('No value supplied for repository version filter'))
+
+        # Get the repo_version object from the repository_version href
+        repo_version = NamedModelViewSet.get_resource(value, RepositoryVersion)
+        content_id_list = RepositoryContent.objects.filter(
+            repository=repo_version.repository, version_added__number__lte=repo_version.number
+        ).exclude(
+            version_removed__number__lte=repo_version.number
+        ).values_list("object_id", flat=True)
+
+        return qs.filter(id__in=content_id_list)
+
+
+class ContentAddedRepositoryVersionFilter(Filter):
+    """
+    Filter used to get the content of this type found in a repository version.
+    """
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('help_text', _('Repository Version referenced by HREF'))
+        super().__init__(*args, **kwargs)
+
+    def filter(self, qs, value):
+        """
+        Args:
+            qs (django.db.models.query.QuerySet): The RepositoryVersion Queryset
+            value (string): of content href to filter
+
+        Returns:
+            Queryset of the RepositoryVersions containing the specified content
+        """
+
+        if value is None:
+            # user didn't supply a value
+            return qs
+
+        if not value:
+            raise DRFValidationError(
+                detail=_('No value supplied for repository version filter'))
+
+        # Get the repo_version object from the repository_version href
+        repo_version = NamedModelViewSet.get_resource(value, RepositoryVersion)
+        content_id_list = RepositoryContent.objects.filter(
+            repository=repo_version.repository, version_added__number=repo_version.number
+        ).values_list("object_id", flat=True)
+
+        return qs.filter(id__in=content_id_list)
+
+
+class ContentRemovedRepositoryVersionFilter(Filter):
+    """
+    Filter used to get the content of this type found in a repository version.
+    """
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('help_text', _('Repository Version referenced by HREF'))
+        super().__init__(*args, **kwargs)
+
+    def filter(self, qs, value):
+        """
+        Args:
+            qs (django.db.models.query.QuerySet): The RepositoryVersion Queryset
+            value (string): of content href to filter
+
+        Returns:
+            Queryset of the RepositoryVersions containing the specified content
+        """
+
+        if value is None:
+            # user didn't supply a value
+            return qs
+
+        if not value:
+            raise DRFValidationError(
+                detail=_('No value supplied for repository version filter'))
+
+        # Get the repo_version object from the repository_version href
+        repo_version = NamedModelViewSet.get_resource(value, RepositoryVersion)
+        content_id_list = RepositoryContent.objects.filter(
+            repository=repo_version.repository, version_removed__number=repo_version.number
+        ).values_list("object_id", flat=True)
+
+        return qs.filter(id__in=content_id_list)
+
+
+class BaseContentFilterSet(BaseFilterSet):
+    """
+    BaseFilterSet extended with some Content-specific properties.
+
+    Allows you to filter the content app by repository version.
+
+    Fields:
+
+        repository_version:
+            Return Content which is contained within this repository version.
+        repository_version_added:
+            Return Content which was added in this repository version.
+        repository_version_removed:
+            Return Content which was removed from this repository version.
+    """
+    repository_version = ContentRepositoryVersionFilter()
+    repository_version_added = ContentAddedRepositoryVersionFilter()
+    repository_version_removed = ContentRemovedRepositoryVersionFilter()
+
+    class Meta:
+        fields = [
+            'repository_version',
+            'repository_version_added',
+            'repository_version_removed',
+        ]

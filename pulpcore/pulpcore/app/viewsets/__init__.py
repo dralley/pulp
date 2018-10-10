@@ -1,13 +1,17 @@
-from .base import AsyncRemoveMixin, AsyncUpdateMixin, BaseFilterSet, NamedModelViewSet  # noqa
+from .base import (  # noqa
+    AsyncRemoveMixin,
+    AsyncUpdateMixin,
+    BaseFilterSet,
+    BaseContentFilterSet,
+    ContentRepositoryVersionFilter,
+    ContentAddedRepositoryVersionFilter,
+    ContentRemovedRepositoryVersionFilter,
+    NamedModelViewSet,
+)
 from .content import (  # noqa
     ArtifactFilter,
     ArtifactViewSet,
     ContentGuardViewSet,
-)
-from .custom_filters import (  # noqa
-    ContentRepositoryVersionFilter,
-    ContentAddedRepositoryVersionFilter,
-    ContentRemovedRepositoryVersionFilter
 )
 from .repository import (  # noqa
     DistributionViewSet,
