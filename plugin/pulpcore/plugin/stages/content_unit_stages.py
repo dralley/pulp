@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models import Q
 
@@ -105,15 +106,28 @@ class ContentUnitSaver(Stage):
             content_artifact_bulk = []
             remote_artifact_bulk = []
             remote_artifact_map = {}
+            declarative_content_by_type = defaultdict(list)
+            saved_content_by_type = defaultdict(list)
 
             with transaction.atomic():
                 await self._pre_save(batch)
+
                 for declarative_content in batch:
-                    if declarative_content.content.pk is None:
-                        declarative_content.content.save()
+                    content = declarative_content.content
+
+                    if content.pk is None:
+                        declarative_content_by_type[type(content)].append(declarative_content)
+
+                for content_model, content_list in declarative_content_by_type.items():
+                    saved_content_by_type[content_model] = list(
+                        content_model.objects.bulk_create([dc.content for dc in content_list])
+                    )
+
+                    for declarative_content, saved_content in zip(declarative_content_by_type[content_model],
+                                                                  saved_content_by_type[content_model]):
                         for declarative_artifact in declarative_content.d_artifacts:
                             content_artifact = ContentArtifact(
-                                content=declarative_content.content,
+                                content=saved_content,
                                 artifact=declarative_artifact.artifact,
                                 relative_path=declarative_artifact.relative_path
                             )
