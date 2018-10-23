@@ -10,7 +10,6 @@ from pulp_smash.pulp3.utils import (
     delete_orphans,
     delete_version,
     gen_repo,
-    get_content,
     get_versions,
     sync,
 )
@@ -20,7 +19,7 @@ from tests.functional.api.using_plugin.constants import (
     FILE_CONTENT_PATH,
     FILE_REMOTE_PATH,
 )
-from tests.functional.api.using_plugin.utils import gen_file_remote
+from tests.functional.api.using_plugin.utils import gen_file_remote, get_file_content
 from tests.functional.api.using_plugin.utils import set_up_module as setUpModule  # noqa:F401
 
 
@@ -67,7 +66,7 @@ class DeleteOrphansTestCase(unittest.TestCase):
 
         sync(self.cfg, remote, repo)
         repo = self.api_client.get(repo['_href'])
-        content = choice(get_content(repo))
+        content = choice(get_file_content(repo))
 
         # Create an orphan content unit.
         self.api_client.post(

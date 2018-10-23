@@ -13,7 +13,6 @@ from pulp_smash.pulp3.utils import (
     gen_distribution,
     gen_remote,
     gen_repo,
-    get_added_content,
     get_versions,
     publish,
     sync,
@@ -27,6 +26,7 @@ from tests.functional.api.using_plugin.constants import (
     FILE_REMOTE_PATH
 )
 from tests.functional.api.using_plugin.utils import (
+    get_file_added_content,
     gen_file_publisher,
     populate_pulp,
 )
@@ -115,7 +115,7 @@ class AutoDistributionTestCase(unittest.TestCase):
 
         # Assert that distribution was updated as per step 8.
         self.assertEqual(distribution['publication'], publication['_href'])
-        unit_path = get_added_content(repo, last_version_href)[0]['relative_path']
+        unit_path = get_file_added_content(repo, last_version_href)[0]['relative_path']
         unit_url = self.cfg.get_hosts('api')[0].roles['api']['scheme']
         unit_url += '://' + distribution['base_url'] + '/'
         unit_url = urljoin(unit_url, unit_path)

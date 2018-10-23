@@ -9,6 +9,9 @@ from pulp_smash.pulp3.utils import (
     gen_publisher,
     gen_repo,
     gen_remote,
+    get_content,
+    get_added_content,
+    get_removed_content,
     require_pulp_3,
     require_pulp_plugins,
     sync
@@ -16,6 +19,7 @@ from pulp_smash.pulp3.utils import (
 
 from tests.functional.api.using_plugin.constants import (
     FILE_FIXTURE_MANIFEST_URL,
+    FILE_CONTENT_NAME,
     FILE_CONTENT_PATH,
     FILE_REMOTE_PATH
 )
@@ -83,3 +87,33 @@ def gen_file_publisher(**kwargs):
     }
     publisher.update(file_extra_fields)
     return publisher
+
+
+def get_file_content(repo, version_href=None):
+    """Return the content units present in a file repository.
+
+    :param repo: A dict of information about the repository.
+    :param version_href: Optional repository version.
+    :returns: A list of filecontent units present in a given repository.
+    """
+    return get_content(repo, version_href)[FILE_CONTENT_NAME]
+
+
+def get_file_added_content(repo, version_href=None):
+    """Return the content units added in a file repository version.
+
+    :param repo: A dict of information about the repository.
+    :param version_href: Optional repository version.
+    :returns: A list of filecontent units present in a given repository.
+    """
+    return get_added_content(repo, version_href)[FILE_CONTENT_NAME]
+
+
+def get_file_removed_content(repo, version_href=None):
+    """Return the content units removed in a file repository version.
+
+    :param repo: A dict of information about the repository.
+    :param version_href: Optional repository version.
+    :returns: A list of filecontent units present in a given repository.
+    """
+    return get_removed_content(repo, version_href)[FILE_CONTENT_NAME]

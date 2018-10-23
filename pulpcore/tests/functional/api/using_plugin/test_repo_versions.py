@@ -13,10 +13,7 @@ from pulp_smash.pulp3.utils import (
     delete_orphans,
     delete_version,
     gen_repo,
-    get_added_content,
     get_artifact_paths,
-    get_content,
-    get_removed_content,
     get_versions,
     publish,
     sync,
@@ -33,6 +30,9 @@ from tests.functional.api.using_plugin.constants import (
 from tests.functional.api.using_plugin.utils import (
     gen_file_publisher,
     gen_file_remote,
+    get_file_content,
+    get_file_added_content,
+    get_file_removed_content,
     populate_pulp,
     skip_if,
 )
@@ -110,13 +110,13 @@ class AddRemoveContentTestCase(unittest.TestCase):
 
         self.assertIsNotNone(repo['_latest_version_href'])
 
-        content = get_content(repo)
+        content = get_file_content(repo)
         self.assertEqual(len(content), FILE_FIXTURE_COUNT)
 
-        added_content = get_added_content(repo)
+        added_content = get_file_added_content(repo)
         self.assertEqual(len(added_content), FILE_FIXTURE_COUNT, added_content)
 
-        removed_content = get_removed_content(repo)
+        removed_content = get_file_removed_content(repo)
         self.assertEqual(len(removed_content), 0, removed_content)
 
         content_summary = self.get_content_summary(repo)
@@ -129,7 +129,7 @@ class AddRemoveContentTestCase(unittest.TestCase):
         Make roughly the same assertions as :meth:`test_02_sync_content`.
         """
         repo = self.client.get(self.repo['_href'])
-        self.content.update(choice(get_content(repo)))
+        self.content.update(choice(get_file_content(repo)))
         self.client.post(
             repo['_versions_href'],
             {'remove_content_units': [self.content['_href']]}
@@ -141,13 +141,13 @@ class AddRemoveContentTestCase(unittest.TestCase):
 
         self.assertIsNotNone(repo['_latest_version_href'])
 
-        content = get_content(repo)
+        content = get_file_content(repo)
         self.assertEqual(len(content), FILE_FIXTURE_COUNT - 1)
 
-        added_content = get_added_content(repo)
+        added_content = get_file_added_content(repo)
         self.assertEqual(len(added_content), 0, added_content)
 
-        removed_content = get_removed_content(repo)
+        removed_content = get_file_removed_content(repo)
         self.assertEqual(len(removed_content), 1, removed_content)
 
         content_summary = self.get_content_summary(repo)
@@ -171,13 +171,13 @@ class AddRemoveContentTestCase(unittest.TestCase):
 
         self.assertIsNotNone(repo['_latest_version_href'])
 
-        content = get_content(repo)
+        content = get_file_content(repo)
         self.assertEqual(len(content), FILE_FIXTURE_COUNT)
 
-        added_content = get_added_content(repo)
+        added_content = get_file_added_content(repo)
         self.assertEqual(len(added_content), 1, added_content)
 
-        removed_content = get_removed_content(repo)
+        removed_content = get_file_removed_content(repo)
         self.assertEqual(len(removed_content), 0, removed_content)
 
         content_summary = self.get_content_summary(repo)
@@ -279,7 +279,7 @@ class AddRemoveRepoVersionTestCase(unittest.TestCase):
         """Delete the first repository version."""
         delete_version(self.repo, self.repo_version_hrefs[0])
         with self.assertRaises(HTTPError):
-            get_content(self.repo, self.repo_version_hrefs[0])
+            get_file_content(self.repo, self.repo_version_hrefs[0])
         for repo_version_href in self.repo_version_hrefs[1:]:
             artifact_paths = get_artifact_paths(self.repo, repo_version_href)
             self.assertIn(self.content[0]['artifact'], artifact_paths)
@@ -294,7 +294,7 @@ class AddRemoveRepoVersionTestCase(unittest.TestCase):
         # Delete the last repo version.
         delete_version(self.repo, self.repo_version_hrefs[-1])
         with self.assertRaises(HTTPError):
-            get_content(self.repo, self.repo_version_hrefs[-1])
+            get_file_content(self.repo, self.repo_version_hrefs[-1])
 
         # Make new repo version from new last repo version.
         self.client.post(
@@ -313,7 +313,7 @@ class AddRemoveRepoVersionTestCase(unittest.TestCase):
         delete_version(self.repo, self.repo_version_hrefs[index])
 
         with self.assertRaises(HTTPError):
-            get_content(self.repo, self.repo_version_hrefs[index])
+            get_file_content(self.repo, self.repo_version_hrefs[index])
 
         for repo_version_href in self.repo_version_hrefs[index + 1:]:
             artifact_paths = get_artifact_paths(self.repo, repo_version_href)
@@ -421,7 +421,7 @@ class FilterRepoVersionTestCase(unittest.TestCase):
         for repo_version in repo_versions:
             self.assertIn(
                 self.client.get(content['_href']),
-                get_content(self.repo, repo_version['_href'])
+                get_file_content(self.repo, repo_version['_href'])
             )
 
     def test_filter_invalid_date(self):
@@ -572,7 +572,7 @@ class CreateRepoBaseVersionTestCase(unittest.TestCase):
         version_content = []
         version_content.append(
             sorted(
-                [self.remove_created_key(item) for item in get_content(repo)],
+                [self.remove_created_key(item) for item in get_file_content(repo)],
                 key=lambda item: item['_href'],
             )
         )
@@ -601,7 +601,7 @@ class CreateRepoBaseVersionTestCase(unittest.TestCase):
         # assert that content on version 1 is equal to content on version 3
         version_content.append(
             sorted(
-                [self.remove_created_key(item) for item in get_content(repo)],
+                [self.remove_created_key(item) for item in get_file_content(repo)],
                 key=lambda item: item['_href'],
             )
         )
@@ -627,7 +627,7 @@ class CreateRepoBaseVersionTestCase(unittest.TestCase):
         version_content = []
         version_content.append(
             sorted(
-                [self.remove_created_key(item) for item in get_content(repo)],
+                [self.remove_created_key(item) for item in get_file_content(repo)],
                 key=lambda item: item['_href'],
             )
         )
@@ -654,7 +654,7 @@ class CreateRepoBaseVersionTestCase(unittest.TestCase):
         # version 1 repo B
         version_content.append(
             sorted(
-                [self.remove_created_key(item) for item in get_content(repo)],
+                [self.remove_created_key(item) for item in get_file_content(repo)],
                 key=lambda item: item['_href'],
             )
         )
@@ -673,7 +673,7 @@ class CreateRepoBaseVersionTestCase(unittest.TestCase):
         # create repo version 1
         repo = self.create_sync_repo()
         version_1_content = [
-            self.remove_created_key(item) for item in get_content(repo)
+            self.remove_created_key(item) for item in get_file_content(repo)
         ]
         self.assertIsNone(get_versions(repo)[0]['base_version'])
 
@@ -691,7 +691,7 @@ class CreateRepoBaseVersionTestCase(unittest.TestCase):
         )
         repo = self.client.get(repo['_href'])
         version_2_content = [
-            self.remove_created_key(item) for item in get_content(repo)
+            self.remove_created_key(item) for item in get_file_content(repo)
         ]
 
         # assert that base_version of the version 2 points to version 1

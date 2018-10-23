@@ -7,7 +7,6 @@ from pulp_smash import api, config
 from pulp_smash.pulp3.constants import REPO_PATH
 from pulp_smash.pulp3.utils import (
     gen_repo,
-    get_content,
     publish,
     sync,
 )
@@ -16,7 +15,11 @@ from tests.functional.api.using_plugin.constants import (
     FILE_REMOTE_PATH,
     FILE_PUBLISHER_PATH
 )
-from tests.functional.api.using_plugin.utils import gen_file_publisher, gen_file_remote
+from tests.functional.api.using_plugin.utils import (
+    get_file_content,
+    gen_file_publisher,
+    gen_file_remote
+)
 from tests.functional.api.using_plugin.utils import set_up_module as setUpModule  # noqa:F401
 
 
@@ -65,7 +68,7 @@ class RemotesPublishersTestCase(unittest.TestCase):
         # Compare contents of repositories.
         contents = []
         for repo in repos:
-            contents.append(get_content(repo))
+            contents.append(get_file_content(repo))
         self.assertEqual(
             {content['_href'] for content in contents[0]},
             {content['_href'] for content in contents[1]},
