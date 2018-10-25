@@ -447,7 +447,7 @@ class ContentRepositoryVersionFilter(Filter):
 
 class ContentAddedRepositoryVersionFilter(Filter):
     """
-    Filter used to get the content of this type found in a repository version.
+    Filter used to get the content of this type added in a repository version.
     """
 
     def __init__(self, *args, **kwargs):
@@ -483,7 +483,7 @@ class ContentAddedRepositoryVersionFilter(Filter):
 
 class ContentRemovedRepositoryVersionFilter(Filter):
     """
-    Filter used to get the content of this type found in a repository version.
+    Filter used to get the content of this type removed in a repository version.
     """
 
     def __init__(self, *args, **kwargs):
