@@ -220,18 +220,18 @@ class RepositoryVersion(Model):
         get_latest_by = 'number'
         ordering = ('number',)
 
-    @property
     def content(self):
         """
-        Returns a set of QuerySet objects, each one matching all units for a single content type.
+        Returns a dictionary of QuerySet objects, each one matching all units for a single content type.
 
         Returns:
-            A list of :class:`django.db.models.QuerySet`: Each QuerySet matches a single model type.
+            A dictionary of ContentTypes and the associated Content querysets.
+            {:class:`django.contrib.contenttypes.models`:: :class:`django.db.models.QuerySet`:}
 
         Examples:
             >>> repository_version = ...
             >>>
-            >>> for content_qs in repository_version.content:
+            >>> for content_qs in repository_version.content():
             >>>     for content in content_qs:  # this loops over one type of content only
             >>>         ...
         """
@@ -246,11 +246,12 @@ class RepositoryVersion(Model):
             content_type_id = relationship['content_type_id']
             repo_content_by_type[content_type_id].add(relationship['object_id'])
 
-        querysets_to_return = []
+        querysets_to_return = {}
         for content_type_id, id_list in repo_content_by_type.items():
-            content_model = ContentType.objects.get(id=content_type_id).model_class()
-            qs = content_model.objects.filter(id__in=id_list)
-            querysets_to_return.append(qs)
+            content_type = ContentType.objects.get(id=content_type_id)
+            # content_type_name = "{model}".format(model=content_type.model)
+            qs = content_type.model_class().objects.filter(id__in=id_list)
+            querysets_to_return[content_type] = qs
 
         return querysets_to_return
 
@@ -261,37 +262,33 @@ class RepositoryVersion(Model):
         Returns:
             bool: True if the repository version contains the content, False otherwise
         """
-        return self.content.filter(pk=content.pk).exists()
+        for ctype, content_qs in self.content().items():
+            if isinstance(content, ctype.model_class()):
+                if content_qs.filter(pk=content.pk).exists():
+                    return True
+
+        return False
 
     @property
     def content_summary(self):
         """
-        The contained content summary.
+        The summary of content in the repository version.
+
+        Returns the types of content present and the counts of those types.
 
         Returns:
             dict: of {<type>: <count>}
-
-        TODO: This code is absolute total garbage (but it works). fix it.
         """
-        relationships = RepositoryContent.objects.filter(
-            repository=self.repository, version_added__number__lte=self.number).exclude(
-            version_removed__number__lte=self.number
-        ).values("content_type_id", "object_id")
-
         content_summary = {}
-        for relationship in relationships:
-            content_type_id = relationship['content_type_id']
-            content_type = ContentType.objects.get(id=content_type_id)
-            content_type_name = "{model}".format(model=content_type.model)
-            total = content_summary.get(content_type_name, 0)
-            total += 1
-            content_summary[content_type_name] = total
+        for content_type, queryset in self.content().items():
+            content_summary[content_type.model] = queryset.count()
         return content_summary
 
     @classmethod
     def create(cls, repository, base_version=None):
         """
-        Create a new RepositoryVersion
+        Create a new RepositoryVersion.
+
         Creation of a RepositoryVersion should be done in a RQ Job.
 
         Args:
@@ -314,9 +311,22 @@ class RepositoryVersion(Model):
 
             if base_version:
                 # first remove the content that isn't in the base version
-                version.remove_content(version.content.exclude(pk__in=base_version.content))
+                for ctype, typed_content in version.content().items():
+                    base_content = base_version.content()
+                    if ctype in base_content:
+                        base_typed_content = base_content[ctype]
+                        version.remove_content(typed_content.exclude(base_typed_content))
+                    else:
+                        version.remove_content(typed_content)
+
                 # now add any content that's in the base_version but not in version
-                version.add_content(base_version.content.exclude(pk__in=version.content))
+                for ctype, typed_content in base_version.content().items():
+                    version_content = version.content()
+                    if ctype in version_content:
+                        version_typed_content = version_content[ctype]
+                        version.add_content(typed_content.exclude(version_typed_content))
+                    else:
+                        version.add_content(typed_content)
 
             resource = CreatedResource(content_object=version)
             resource.save()
@@ -343,7 +353,7 @@ class RepositoryVersion(Model):
         Returns:
             QuerySet: The Content objects that were added by this version.
 
-        TODO: deduplicate code?
+        TODO: deduplicate code with content()?
 
         """
         relationships = RepositoryContent.objects.filter(
@@ -357,9 +367,9 @@ class RepositoryVersion(Model):
 
         querysets_to_return = {}
         for content_type_id, id_list in repo_content_by_type.items():
-            content_model = ContentType.objects.get(id=content_type_id).model_class()
-            qs = content_model.objects.filter(id__in=id_list)
-            querysets_to_return[content_type_id] = qs
+            content_type = ContentType.objects.get(id=content_type_id)
+            qs = content_type.model_class().objects.filter(id__in=id_list)
+            querysets_to_return[content_type] = qs
 
         return querysets_to_return
 
@@ -368,7 +378,7 @@ class RepositoryVersion(Model):
         Returns:
             QuerySet: The Content objects that were removed by this version.
 
-        TODO: deduplicate code?
+        TODO: deduplicate code with content()?
 
         """
         relationships = RepositoryContent.objects.filter(
@@ -382,9 +392,9 @@ class RepositoryVersion(Model):
 
         querysets_to_return = {}
         for content_type_id, id_list in repo_content_by_type.items():
-            content_model = ContentType.objects.get(id=content_type_id).model_class()
-            qs = content_model.objects.filter(id__in=id_list)
-            querysets_to_return[content_type_id] = qs
+            content_type = ContentType.objects.get(id=content_type_id)
+            qs = content_type.model_class().objects.filter(id__in=id_list)
+            querysets_to_return[content_type] = qs
 
         return querysets_to_return
 
@@ -428,7 +438,7 @@ class RepositoryVersion(Model):
 
         repo_content = []
         existing_content = {}
-        for existing_content_qs in self.content:
+        for existing_content_qs in self.content().values():
             existing_content[existing_content_qs.model] = existing_content_qs.\
                 values_list('pk', flat=True)
 

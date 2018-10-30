@@ -29,7 +29,7 @@ class ContentUnitAssociation(Stage):
         super().__init__(*args, **kwargs)
         self.new_version = new_version
         self.unit_keys_by_type = defaultdict(set)
-        for queryset in self.new_version.content:
+        for unit_type, queryset in self.new_version.content().items():
             for unit in queryset:
                 self.unit_keys_by_type[type(unit)].add(unit.natural_key())
 
