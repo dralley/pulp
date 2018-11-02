@@ -162,26 +162,24 @@ class ContentView(View):
 
         # pass-through
         if publication.pass_through:
-            try:
-                ca = ContentArtifact.objects.get(
-                    content__in=publication.repository_version.content,
-                    relative_path=rel_path)
-            except MultipleObjectsReturned:
-                log.debug(
-                    _('Multiple (pass-through) matches for {b}/{p}'),
-                    {
-                        'b': distribution.base_path,
-                        'p': rel_path,
-                    }
-                )
-            except ObjectDoesNotExist:
-                pass
-            else:
-                artifact = ca.artifact
-                if artifact:
-                    return artifact.file.name
+            for content_qs in publication.repository_version.content().values():
+                try:
+                    ca = ContentArtifact.objects.get(
+                        content__in=content_qs,
+                        relative_path=rel_path)
+                except MultipleObjectsReturned:
+                    log.debug(_('Multiple (pass-through) matches for {b}/{p}').format(
+                        b=distribution.base_path,
+                        p=rel_path
+                    ))
+                except ObjectDoesNotExist:
+                    pass
                 else:
-                    raise ArtifactNotFound(path)
+                    artifact = ca.artifact
+                    if artifact:
+                        return artifact.file.name
+                    else:
+                        raise ArtifactNotFound(path)
 
         raise PathNotResolved(path)
 
