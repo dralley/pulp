@@ -4,8 +4,9 @@ Content related Django models.
 import hashlib
 
 from django.core import validators
-from django.db import IntegrityError, models, transaction
+from django.db import IntegrityError, models, transaction, connections
 from django.forms.models import model_to_dict
+from django.utils.functional import partition
 
 from itertools import chain
 
@@ -17,6 +18,87 @@ class BulkCreateManager(models.Manager):
     """
     A manager that provides a bulk_get_or_create()
     """
+
+    def bulk_create(self, objs, batch_size=None, ignore_conflicts=False):
+        """
+        Insert each of the instances into the database. Do *not* call
+        save() on each of the instances, do not send any pre/post_save
+        signals, and do not set the primary key attribute if it is an
+        autoincrement field (except if features.can_return_rows_from_bulk_insert=True).
+        Multi-table models are not supported.
+        """
+        # When you bulk insert you don't get the primary keys back (if it's an
+        # autoincrement, except if can_return_rows_from_bulk_insert=True), so
+        # you can't insert into the child tables which references this. There
+        # are two workarounds:
+        # 1) This could be implemented if you didn't have an autoincrement pk
+        # 2) You could do it by doing O(n) normal inserts into the parent
+        #    tables to get the primary keys back and then doing a single bulk
+        #    insert into the childmost table.
+        # We currently set the primary keys on the objects when using
+        # PostgreSQL via the RETURNING ID clause. It should be possible for
+        # Oracle as well, but the semantics for extracting the primary keys is
+        # trickier so it's not done yet.
+        assert batch_size is None or batch_size > 0
+        # Check that the parents share the same concrete model with the our
+        # model to detect the inheritance pattern ConcreteGrandParent ->
+        # MultiTableParent -> ProxyChild. Simply checking self.model._meta.proxy
+        # would not identify that case as involving multiple tables.
+        multi_inherited = False
+        base_model = None
+        import pydevd
+        pydevd.settrace('localhost', port=12735, stdoutToServer=True, stderrToServer=True)
+        for parent in self.model._meta.get_parent_list():
+            if parent._meta.concrete_model is not self.model._meta.concrete_model:
+                multi_inherited = True
+                base_model = parent._meta.concrete_model
+                break
+
+        if not multi_inherited:
+            return super().bulk_create(objs)
+
+        if not objs:
+            return objs
+
+        self._for_write = True
+        connection = connections[self.db]
+        objs = list(objs)
+        self._queryset_class._populate_pk_values(self, objs)
+
+        with transaction.atomic(using=self.db, savepoint=False):
+            fields = self.model._meta.concrete_fields
+            objs_with_pk, objs_without_pk = partition(lambda o: o.pk is None, objs)
+
+            if objs_with_pk:
+                self._queryset_class._batched_insert(self, objs_with_pk, fields, batch_size)  # ignore_conflicts=ignore_conflicts
+                for obj_with_pk in objs_with_pk:
+                    obj_with_pk._state.adding = False
+                    obj_with_pk._state.db = self.db
+
+            if objs_without_pk:
+                base_objects = [base_model() for obj in objs_without_pk]
+                base_fields = [
+                    f for f in fields
+                    if not isinstance(f, models.fields.AutoField) and f in base_model._meta.fields
+                ]
+                ids = self._queryset_class._batched_insert(self, base_objects, base_fields, batch_size)  # ignore_conflicts=ignore_conflicts
+                child_objects = []
+                for (base_id, child) in zip(ids, objs_without_pk):
+                    base_obj = base_model.objects.get(base_id)
+                    child.content_ptr = base_id
+                    # child._created = base_obj._created
+                    # child._last_updated = base_obj._last_updated
+                    child_objects.append(child)
+                ids = self._queryset_class._batched_insert(self, child_objects, fields, batch_size, ignore_conflicts=ignore_conflicts)
+
+                if connection.features.can_return_rows_from_bulk_insert and not ignore_conflicts:
+                    assert len(ids) == len(objs_without_pk)
+                for obj_without_pk, pk in zip(objs_without_pk, ids):
+                    obj_without_pk.pk = pk
+                    obj_without_pk._state.adding = False
+                    obj_without_pk._state.db = self.db
+
+        return objs
 
     def bulk_get_or_create(self, objs, batch_size=None):
         """
