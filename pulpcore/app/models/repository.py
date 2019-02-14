@@ -1,15 +1,19 @@
 """
 Repository related Django models.
 """
+import django
+
 from contextlib import suppress
 from django.db import models
 from django.db import transaction
+from django.urls import reverse
 
 from .base import Model, MasterModel
 from .content import Content
 from .task import CreatedResource
 
 from pulpcore.app.models.storage import get_tls_path
+from pulpcore.app.util import get_view_name_for_model
 from pulpcore.exceptions import ResourceImmutableError
 
 
@@ -474,3 +478,69 @@ class RepositoryVersion(Model):
         else:
             self.complete = True
             self.save()
+
+    def get_content_summary(self, obj):
+        """
+        The summary of contained content.
+
+        Returns:
+            dict: of {<_type>: <count>}
+        """
+        annotated = obj.content.values('_type').annotate(count=models.Count('_type'))
+        return {c['_type']: c['count'] for c in annotated}
+
+    def get_content_added_summary(self, obj):
+        """
+        The summary of added content.
+
+        Returns:
+            dict: of {<_type>: <count>}
+        """
+        annotated = obj.added().values('_type').annotate(count=models.Count('_type'))
+        return {c['_type']: c['count'] for c in annotated}
+
+    def get_content_removed_summary(self, obj):
+        """
+        The summary of removed content.
+
+        Returns:
+            dict: of {<_type>: <count>}
+        """
+        annotated = obj.removed().values('_type').annotate(count=models.Count('_type'))
+        return {c['_type']: c['count'] for c in annotated}
+
+
+class RepositoryVersionContentDetails(models.Model):
+    content_type = models.TextField()
+    repository_version = models.ForeignKey('RepositoryVersion', related_name='counts',
+                                           on_delete=models.CASCADE)
+    count = models.IntegerField()
+
+    @property
+    def content_href(self):
+        """
+        Generate URLs for the content types present in the RepositoryVersion.
+
+        For each content type present in the RepositoryVersion, create the URL of the viewset of
+        that variety of content along with a query parameter which filters it by presence in this
+        RepositoryVersion.
+
+        Args:
+            obj (pulpcore.app.models.RepositoryVersion): The RepositoryVersion being serialized.
+
+        Returns:
+            dict: {<_type>: <url>}
+        """
+        ctype_model = Content.objects.filter(_type=self.content_type).first().cast().__class__
+        ctype_view = get_view_name_for_model(ctype_model, 'list')
+        try:
+            ctype_url = reverse(ctype_view)
+        except django.urls.exceptions.NoReverseMatch:
+            # We've hit a content type for which there is no viewset.
+            # There's nothing we can do here, except to skip it.
+            continue
+        rv_href = "/pulp/api/v3/repositories/{repo}/versions/{version}/".format(
+            repo=self.repository_verison.repository.pk, version=self.repository_version.number)
+        full_url = "{base}?repository_version={rv_href}".format(
+            base=ctype_url, rv_href=rv_href)
+        return full_url

@@ -1,9 +1,5 @@
 from gettext import gettext as _
 
-import django
-from django.db.models import Count
-from django.urls import reverse
-
 from rest_framework import serializers, fields
 from rest_framework.validators import UniqueValidator
 from rest_framework_nested.serializers import NestedHyperlinkedModelSerializer
@@ -19,7 +15,6 @@ from pulpcore.app.serializers import (
     ModelSerializer,
 )
 from pulpcore.app.serializers import validate_unknown_fields
-from pulpcore.app.util import get_view_name_for_model
 
 
 class RepositorySerializer(ModelSerializer):
@@ -288,135 +283,6 @@ class RepositoryVersionSerializer(ModelSerializer, NestedHyperlinkedModelSeriali
         help_text=_('A list of counts of each type of content removed in this version.'),
         read_only=True,
     )
-
-    def get_content_summary(self, obj):
-        """
-        The summary of contained content.
-
-        Returns:
-            dict: of {<_type>: <count>}
-        """
-        annotated = obj.content.values('_type').annotate(count=Count('_type'))
-        return {c['_type']: c['count'] for c in annotated}
-
-    def get_content_added_summary(self, obj):
-        """
-        The summary of added content.
-
-        Returns:
-            dict: of {<_type>: <count>}
-        """
-        annotated = obj.added().values('_type').annotate(count=Count('_type'))
-        return {c['_type']: c['count'] for c in annotated}
-
-    def get_content_removed_summary(self, obj):
-        """
-        The summary of removed content.
-
-        Returns:
-            dict: of {<_type>: <count>}
-        """
-        annotated = obj.removed().values('_type').annotate(count=Count('_type'))
-        return {c['_type']: c['count'] for c in annotated}
-
-    def get_content_hrefs(self, obj):
-        """
-        Generate URLs for the content types present in the RepositoryVersion.
-
-        For each content type present in the RepositoryVersion, create the URL of the viewset of
-        that variety of content along with a query parameter which filters it by presence in this
-        RepositoryVersion.
-
-        Args:
-            obj (pulpcore.app.models.RepositoryVersion): The RepositoryVersion being serialized.
-
-        Returns:
-            dict: {<_type>: <url>}
-        """
-        content_urls = {}
-
-        for ctype in obj.content.values_list('_type', flat=True).distinct():
-            ctype_model = obj.content.filter(_type=ctype).first().cast().__class__
-            ctype_view = get_view_name_for_model(ctype_model, 'list')
-            try:
-                ctype_url = reverse(ctype_view)
-            except django.urls.exceptions.NoReverseMatch:
-                # We've hit a content type for which there is no viewset.
-                # There's nothing we can do here, except to skip it.
-                continue
-            rv_href = "/pulp/api/v3/repositories/{repo}/versions/{version}/".format(
-                repo=obj.repository.pk, version=obj.number)
-            full_url = "{base}?repository_version={rv_href}".format(
-                base=ctype_url, rv_href=rv_href)
-            content_urls[ctype] = full_url
-
-        return content_urls
-
-    def get_content_added_hrefs(self, obj):
-        """
-        Generate URLs for the content types added in the RepositoryVersion.
-
-        For each content type added in the RepositoryVersion, create the URL of the viewset of
-        that variety of content along with a query parameter which filters it by addition in this
-        RepositoryVersion.
-
-        Args:
-            obj (pulpcore.app.models.RepositoryVersion): The RepositoryVersion being serialized.
-
-        Returns:
-            dict: {<_type>: <url>}
-        """
-        content_urls = {}
-
-        for ctype in obj.added().values_list('_type', flat=True).distinct():
-            ctype_model = obj.content.filter(_type=ctype).first().cast().__class__
-            ctype_view = get_view_name_for_model(ctype_model, 'list')
-            try:
-                ctype_url = reverse(ctype_view)
-            except django.urls.exceptions.NoReverseMatch:
-                # We've hit a content type for which there is no viewset.
-                # There's nothing we can do here, except to skip it.
-                continue
-            rv_href = "/pulp/api/v3/repositories/{repo}/versions/{version}/".format(
-                repo=obj.repository.pk, version=obj.number)
-            full_url = "{base}?repository_version_added={rv_href}".format(
-                base=ctype_url, rv_href=rv_href)
-            content_urls[ctype] = full_url
-
-        return content_urls
-
-    def get_content_removed_hrefs(self, obj):
-        """
-        Generate URLs for the content types removed in the RepositoryVersion.
-
-        For each content type removed in the RepositoryVersion, create the URL of the viewset of
-        that variety of content along with a query parameter which filters it by removal in this
-        RepositoryVersion.
-
-        Args:
-            obj (pulpcore.app.models.RepositoryVersion): The RepositoryVersion being serialized.
-
-        Returns:
-            dict: {<_type>: <url>}
-        """
-        content_urls = {}
-
-        for ctype in obj.removed().values_list('_type', flat=True).distinct():
-            ctype_model = obj.content.filter(_type=ctype).first().cast().__class__
-            ctype_view = get_view_name_for_model(ctype_model, 'list')
-            try:
-                ctype_url = reverse(ctype_view)
-            except django.urls.exceptions.NoReverseMatch:
-                # We've hit a content type for which there is no viewset.
-                # There's nothing we can do here, except to skip it.
-                continue
-            rv_href = "/pulp/api/v3/repositories/{repo}/versions/{version}/".format(
-                repo=obj.repository.pk, version=obj.number)
-            full_url = "{base}?repository_version_removed={rv_href}".format(
-                base=ctype_url, rv_href=rv_href)
-            content_urls[ctype] = full_url
-
-        return content_urls
 
     class Meta:
         model = models.RepositoryVersion
