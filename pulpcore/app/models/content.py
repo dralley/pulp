@@ -60,7 +60,7 @@ class QueryMixin:
         """
         Returns a Q object that represents the model
         """
-        if self.pk:
+        if not self._state.adding:
             return models.Q(pk=self.pk)
         try:
             kwargs = self.natural_key_dict()
@@ -128,7 +128,7 @@ class Artifact(Model):
     RELIABLE_DIGEST_FIELDS = DIGEST_FIELDS[:-3]
 
     def q(self):
-        if self.pk:
+        if not self._state.adding:
             return models.Q(pk=self.pk)
         for digest_name in self.DIGEST_FIELDS:
             digest_value = getattr(self, digest_name)
